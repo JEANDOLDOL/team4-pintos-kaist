@@ -107,6 +107,8 @@ void thread_init(void)
 	lock_init(&tid_lock);
 	list_init(&ready_list);
 	list_init(&destruction_req);
+	// 슬립 리스트 초기화. 스레드 이닛은 보통 한 번만 실행된다는데 함 봐야 알듯.
+	list_init(&sleep_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -301,10 +303,13 @@ void thread_yield(void)
 
 	ASSERT(!intr_context());
 
+	// 인터럽트 잠시 끄기
 	old_level = intr_disable();
+	// 현재 쓰레드가 idle이 아니라면, 즉 실행중인 스레드가 있다면
 	if (curr != idle_thread)
 		list_push_back(&ready_list, &curr->elem);
 	do_schedule(THREAD_READY);
+	// 작업이 끝난 후, 이전 인터럽트 상태로 복구
 	intr_set_level(old_level);
 }
 
@@ -412,6 +417,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+	t->wake_time = 0; // 기상시간 초기화.
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -534,8 +540,10 @@ do_schedule(int status)
 {
 	ASSERT(intr_get_level() == INTR_OFF);
 	ASSERT(thread_current()->status == THREAD_RUNNING);
+	// 제거해야할 스레드가 남아있는 동안
 	while (!list_empty(&destruction_req))
 	{
+		// victim을 정해주고 free해준다.
 		struct thread *victim =
 			list_entry(list_pop_front(&destruction_req), struct thread, elem);
 		palloc_free_page(victim);
