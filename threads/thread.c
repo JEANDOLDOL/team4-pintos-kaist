@@ -11,9 +11,12 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+// 수면리스트 생성
+static struct list sleep_list;
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -208,6 +211,58 @@ tid_t thread_create(const char *name, int priority,
 	thread_unblock(t);
 
 	return tid;
+}
+
+// 재울 쓰레드와 현재 sleep_list 의 값들 하나하나 비교 하는 함수
+static bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+	struct thread *sa = list_entry(a, struct thread, elem);
+	struct thread *sb = list_entry(b, struct thread, elem);
+	return sa->wake_time < sb->wake_time;
+}
+
+// 재우는 함수 구현
+void thread_sleep(int64_t ticks)
+{
+	enum intr_level old_level;
+
+	struct thread *curr = thread_current();
+	// 인터럽트 잠시 끄기
+	old_level = intr_disable();
+	// 기상시간 정해주기
+	curr->wake_time = timer_ticks() + ticks;
+	// 순서대로 넣을수도
+	list_insert_ordered(&sleep_list, &curr->elem, compare_thread, NULL); // 리스트에 넣어주기
+	// 일단 리스트 뒤에 넣어주자.
+	// list_push_front(&sleep_list, &curr->elem);
+	// 이제 재우자
+	thread_block();
+	// 작업이 끝난 후, 이전 인터럽트 상태로 복구
+	intr_set_level(old_level);
+}
+
+// 깨우는 함수 구현
+
+void thread_wake(void)
+{
+	int64_t current_ticks = timer_ticks();
+	struct list_elem *e = list_begin(&sleep_list); // 첫 쓰레드 꺼내기
+
+	// 동시성 구현
+	while (e != list_end(&sleep_list))
+	{
+		struct thread *t = list_entry(e, struct thread, elem);
+		if (t->wake_time <= current_ticks)
+		{
+			// 밑에 둘 순서 바꾸면 에러남.
+			e = list_remove(e);
+			thread_unblock(t);
+		}
+		else
+		{
+			break;
+		}
+	}
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled

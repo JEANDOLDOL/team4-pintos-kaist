@@ -111,9 +111,6 @@ struct thread
 	unsigned magic;		  /* Detects stack overflow. */
 };
 
-// 수면리스트 생성
-struct list sleep_list;
-
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
@@ -147,5 +144,10 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 void do_iret(struct intr_frame *tf);
+
+// 깨우고 재우는 함수 추가
+void thread_sleep(int64_t ticks);
+void thread_wake(void);
+static bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */

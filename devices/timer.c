@@ -93,24 +93,15 @@ timer_elapsed(int64_t then)
 /* Suspends execution for approximately TICKS timer ticks. */
 void timer_sleep(int64_t ticks)
 {
-	// int64_t start = timer_ticks();
-
-	// ASSERT(intr_get_level() == INTR_ON);
-	// while (timer_elapsed(start) < ticks)
-	// 	thread_yield();
-	int64_t start = timer_ticks();
-	struct thread *curr = thread_current();
-	// 기상시간 정해주기
-	curr->wake_time = start + ticks;
-	// 일단 리스트 뒤에 넣어주자.
-	list_push_back(&sleep_list, &curr->elem);
-	// 이제 재우자
-	thread_block();
 
 	ASSERT(intr_get_level() == INTR_ON);
-	// while을 지울거임.
-	// while (timer_elapsed(start) < ticks)
-	// 	thread_yield();
+	// 얘를 지울거임.
+	// while (timer_elapsed (start) < ticks)
+	// 	thread_yield ();
+	if (ticks >= 0)
+	{
+		thread_sleep(ticks);
+	}
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -143,6 +134,10 @@ timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
 	thread_tick();
+	if (ticks >= 0)
+	{
+		thread_wake();
+	}
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
