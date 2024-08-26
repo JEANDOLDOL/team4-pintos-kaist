@@ -93,6 +93,7 @@ timer_elapsed(int64_t then)
 /* Suspends execution for approximately TICKS timer ticks. */
 void timer_sleep(int64_t ticks)
 {
+	int64_t start = timer_ticks();
 
 	ASSERT(intr_get_level() == INTR_ON);
 	// 얘를 지울거임.
@@ -100,7 +101,7 @@ void timer_sleep(int64_t ticks)
 	// 	thread_yield ();
 	if (ticks >= 0)
 	{
-		thread_sleep(ticks);
+		thread_sleep(start + ticks);
 	}
 }
 
@@ -136,7 +137,7 @@ timer_interrupt(struct intr_frame *args UNUSED)
 	thread_tick();
 	if (ticks >= 0)
 	{
-		thread_wake();
+		thread_wake(ticks);
 	}
 }
 

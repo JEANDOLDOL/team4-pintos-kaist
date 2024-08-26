@@ -230,38 +230,36 @@ void thread_sleep(int64_t ticks)
 	// 인터럽트 잠시 끄기
 	old_level = intr_disable();
 	// 기상시간 정해주기
-	curr->wake_time = timer_ticks() + ticks;
-	// 순서대로 넣을수도
-	list_insert_ordered(&sleep_list, &curr->elem, compare_thread, NULL); // 리스트에 넣어주기
-	// 일단 리스트 뒤에 넣어주자.
-	// list_push_front(&sleep_list, &curr->elem);
-	// 이제 재우자
-	thread_block();
+	curr->wake_time = ticks;
+	if (curr != idle_thread) {
+		// 순서대로 넣을수도
+		list_insert_ordered(&sleep_list, &curr->elem, compare_thread, NULL); // 리스트에 넣어주기
+		// 일단 리스트 뒤에 넣어주자.
+		// list_push_front(&sleep_list, &curr->elem);
+		// 이제 재우자
+		thread_block();
+	}
 	// 작업이 끝난 후, 이전 인터럽트 상태로 복구
 	intr_set_level(old_level);
 }
 
 // 깨우는 함수 구현
 
-void thread_wake(void)
+void thread_wake(int64_t ticks)
 {
-	int64_t current_ticks = timer_ticks();
 	struct list_elem *e = list_begin(&sleep_list); // 첫 쓰레드 꺼내기
 
 	// 동시성 구현
 	while (e != list_end(&sleep_list))
 	{
 		struct thread *t = list_entry(e, struct thread, elem);
-		if (t->wake_time <= current_ticks)
-		{
-			// 밑에 둘 순서 바꾸면 에러남.
-			e = list_remove(e);
-			thread_unblock(t);
-		}
-		else
-		{
+
+		if(t->wake_time > ticks) {
 			break;
 		}
+		// 밑에 둘 순서 바꾸면 에러남.
+		e = list_remove(e);
+		thread_unblock(t);
 	}
 }
 

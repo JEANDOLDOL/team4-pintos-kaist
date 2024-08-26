@@ -147,7 +147,6 @@ void do_iret(struct intr_frame *tf);
 
 // 깨우고 재우는 함수 추가
 void thread_sleep(int64_t ticks);
-void thread_wake(void);
-static bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux);
+void thread_wake(int64_t ticks);
 
 #endif /* threads/thread.h */
