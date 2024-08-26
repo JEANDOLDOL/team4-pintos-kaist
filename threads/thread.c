@@ -298,29 +298,6 @@ void thread_unblock(struct thread *t)
 	intr_set_level(old_level);
 }
 
-void
-thread_sleep(int64_t ticks){ //추가한 함수.
-	struct thread *curr = thread_current(); //현재의 스레드
-	enum intr_level old_level;
-	old_level = intr_disable(); //현재의 인터렙트를 저장하고 인터럽트를 비활성화 한다.
-
-	curr -> wake_when = ticks; //일어날 시간 저장.
-
-	list_insert_ordered(&sleep_list, &curr -> elem, compare_sleep, NULL); //sleep_list에 추가.
-	thread_block(); //현재 스레드 재우기
-
-	intr_set_level(old_level); // 인터럽트 상태를 원래대로 변경.
-}
-
-bool
-compare_sleep(const struct list_elem *a, const struct list_elem *b, void *aux){
-	//a와 b는 list_elem타입이므로, 이를 thread 구조체로 변환해야 한다.
-	struct thread *thread_a = list_entry(a, struct thread, elem);
-	struct thread *thread_b = list_entry(b, struct thread, elem);
-
-	//남은 틱수 비교.
-	return thread_a -> wake_when < thread_b -> wake_when;
-}
 /* Returns the name of the running thread. */
 const char *
 thread_name(void)
@@ -328,24 +305,6 @@ thread_name(void)
 	return thread_current()->name;
 }
 
-void
-thread_wakeup(int64_t ticks){
-	// 현재 틱에서 깨울놈이 있나 없나 확인.
-	// 슬립 리스트에서 확인을 한다.
-	// 반복문을 사용해서 리스트내의 모든 xx를 확인.
-	// 흘러가던 틱이랑 그 새끼가 일어나는 틱을 비교.
-	// 같으면 레디큐쏘고(thread_unblock) 아니면 다음으로 넘어감.
-	while (!list_empty(&sleep_list)){
-		struct list_elem *candidate = list_front(&sleep_list);
-		struct thread *t = list_entry(candidate, struct thread, elem);
-
-		if(t -> wake_when > ticks) {
-			break;
-		}
-		list_pop_front(&sleep_list);
-		thread_unblock(t);
-	}
-}
 /* Returns the running thread.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
