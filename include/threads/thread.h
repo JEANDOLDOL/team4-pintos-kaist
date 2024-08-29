@@ -93,6 +93,7 @@ struct thread
 	char name[16];			   /* Name (for debugging purposes). */
 	int priority;			   /* Priority. */
 	int64_t wake_time;		   /* 기상나팔 울리는 시간 */
+	int original_priority;	   /* 원래 우선순위 */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
@@ -148,5 +149,7 @@ void do_iret(struct intr_frame *tf);
 // 깨우고 재우는 함수 추가
 void thread_sleep(int64_t ticks);
 void thread_wake(int64_t ticks);
+
+bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 #endif /* threads/thread.h */
