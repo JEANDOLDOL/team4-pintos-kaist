@@ -117,6 +117,16 @@ void sema_up(struct semaphore *sema)
 		thread_unblock(list_entry(list_pop_front(&sema->waiters),
 								  struct thread, elem));
 	sema->value++;
+	struct list_elem *e = list_begin(&ready_list);
+	struct thread *t = list_entry(e, struct thread, elem);
+	// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
+	if (t->priority > thread_current()->priority)
+	{
+		thread_yield();
+	}
+
+	// thread_current()->priority = thread_current()->original_priority;
+
 	intr_set_level(old_level);
 }
 
@@ -192,9 +202,39 @@ void lock_acquire(struct lock *lock)
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
+	struct thread *curr = thread_current();
+	if (lock->holder)
+	{
+		curr->waiting_lock = lock;
+		list_insert_ordered(&lock->holder->donators, &curr->donation_elem,
+							compare_thread, 0);
+		// donate
+		donate_pri(lock);
+	}
 
 	sema_down(&lock->semaphore);
+	curr->waiting_lock = NULL;
 	lock->holder = thread_current();
+}
+
+// 기부 함수 구현
+void donate_pri(struct lock *l)
+{
+	struct thread *curr = thread_current();
+
+	{
+		int depth;
+		struct thread *cur = thread_current();
+
+		for (depth = 0; depth < 8; depth++)
+		{
+			if (!cur->waiting_lock)
+				break;
+			struct thread *holder = cur->waiting_lock->holder;
+			holder->priority = cur->priority;
+			cur = holder;
+		}
+	}
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -227,7 +267,12 @@ void lock_release(struct lock *lock)
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
 
+	remove_with_lock(lock);
+	// 우선순위 값을 원상복구하는데, 기부자가 아직 남아있다면, 그 중 가장 큰 놈으로 우선순위 바꿔줌.
+	refresh_priority();
+
 	lock->holder = NULL;
+	// 여기서 양보를 해줄거임.
 	sema_up(&lock->semaphore);
 }
 

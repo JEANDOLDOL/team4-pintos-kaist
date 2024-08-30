@@ -29,7 +29,7 @@ static struct list sleep_list;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+struct list ready_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -225,6 +225,44 @@ bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *
 	return sa->priority > sb->priority;
 }
 
+bool thread_compare_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	struct thread *sa = list_entry(a, struct thread, donation_elem);
+	struct thread *sb = list_entry(b, struct thread, donation_elem);
+
+	return sa->priority > sb->priority;
+}
+
+void remove_with_lock(struct lock *lock)
+{
+	struct list_elem *e;
+	struct thread *cur = thread_current();
+
+	for (e = list_begin(&cur->donators); e != list_end(&cur->donators); e = list_next(e))
+	{
+		struct thread *t = list_entry(e, struct thread, donation_elem);
+		if (t->waiting_lock == lock)
+			// donators 리스트에서 제거. 나 이제 너 안기다려.
+			list_remove(&t->donation_elem);
+	}
+}
+
+void refresh_priority(void)
+{
+	struct thread *cur = thread_current();
+
+	cur->priority = cur->original_priority;
+
+	if (!list_empty(&cur->donators))
+	{
+		list_sort(&cur->donators, thread_compare_donate_priority, 0);
+
+		struct thread *front = list_entry(list_front(&cur->donators), struct thread, donation_elem);
+		if (front->priority > cur->priority)
+			cur->priority = front->priority;
+	}
+}
+
 // 재우는 함수 구현
 void thread_sleep(int64_t ticks)
 {
@@ -386,17 +424,13 @@ void thread_set_priority(int new_priority)
 
 	struct list_elem *e = list_begin(&ready_list);
 	struct thread *t = list_entry(e, struct thread, elem);
+	// 도네이터에 있는 스레드의 우선순위보다 실행중인 스레드의 우선순위가 높을 때 처리를 위해.
+	// refresh_priority();
 	// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
 	if (t->priority > curr->priority)
 	{
 		thread_yield();
 	}
-}
-
-// 기부 함수 구현
-void donate_priority(struct thread *t, struct lock *l)
-{
-	struct thread *curr = thread_current();
 }
 
 /* Returns the current thread's priority. */
@@ -499,6 +533,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->magic = THREAD_MAGIC;
 	t->wake_time = 0;				 // 기상시간 초기화.
 	t->original_priority = priority; // 원래 우선순위 초기화
+	list_init(&t->donators);
+	t->waiting_lock = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

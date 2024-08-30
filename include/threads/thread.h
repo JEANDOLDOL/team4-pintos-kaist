@@ -94,9 +94,12 @@ struct thread
 	int priority;			   /* Priority. */
 	int64_t wake_time;		   /* 기상나팔 울리는 시간 */
 	int original_priority;	   /* 원래 우선순위 */
+	struct list donators;	   /* 기부자들 명단 */
+	struct lock *waiting_lock; /* 기다리고 있는 락 */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
+	struct list_elem donation_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -149,7 +152,12 @@ void do_iret(struct intr_frame *tf);
 // 깨우고 재우는 함수 추가
 void thread_sleep(int64_t ticks);
 void thread_wake(int64_t ticks);
+extern struct list ready_list;
 
 bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool thread_compare_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
 
 #endif /* threads/thread.h */
