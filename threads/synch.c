@@ -207,7 +207,7 @@ void lock_acquire(struct lock *lock)
 	{
 		curr->waiting_lock = lock;
 		list_insert_ordered(&lock->holder->donators, &curr->donation_elem,
-							compare_thread, 0);
+							thread_compare_donate_priority, 0);
 		// donate
 		donate_pri(lock);
 	}

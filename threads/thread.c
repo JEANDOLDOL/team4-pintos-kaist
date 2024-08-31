@@ -236,9 +236,9 @@ bool thread_compare_donate_priority(const struct list_elem *a, const struct list
 void remove_with_lock(struct lock *lock)
 {
 	struct list_elem *e;
-	struct thread *cur = thread_current();
+	struct thread *curr = thread_current();
 
-	for (e = list_begin(&cur->donators); e != list_end(&cur->donators); e = list_next(e))
+	for (e = list_begin(&curr->donators); e != list_end(&curr->donators); e = list_next(e))
 	{
 		struct thread *t = list_entry(e, struct thread, donation_elem);
 		if (t->waiting_lock == lock)
@@ -249,17 +249,17 @@ void remove_with_lock(struct lock *lock)
 
 void refresh_priority(void)
 {
-	struct thread *cur = thread_current();
+	struct thread *curr = thread_current();
 
-	cur->priority = cur->original_priority;
+	curr->priority = curr->original_priority;
 
-	if (!list_empty(&cur->donators))
+	if (!list_empty(&curr->donators))
 	{
-		list_sort(&cur->donators, thread_compare_donate_priority, 0);
+		list_sort(&curr->donators, thread_compare_donate_priority, 0);
 
-		struct thread *front = list_entry(list_front(&cur->donators), struct thread, donation_elem);
-		if (front->priority > cur->priority)
-			cur->priority = front->priority;
+		struct thread *front = list_entry(list_front(&curr->donators), struct thread, donation_elem);
+		if (front->priority > curr->priority)
+			curr->priority = front->priority;
 	}
 }
 
@@ -419,13 +419,13 @@ void thread_set_priority(int new_priority)
 {
 	struct thread *curr = thread_current();
 
-	curr->priority = new_priority;
+	// curr->priority = new_priority;
 	curr->original_priority = new_priority;
 
 	struct list_elem *e = list_begin(&ready_list);
 	struct thread *t = list_entry(e, struct thread, elem);
 	// 도네이터에 있는 스레드의 우선순위보다 실행중인 스레드의 우선순위가 높을 때 처리를 위해.
-	// refresh_priority();
+	refresh_priority();
 	// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
 	if (t->priority > curr->priority)
 	{
