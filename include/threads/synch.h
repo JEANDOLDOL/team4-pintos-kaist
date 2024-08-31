@@ -52,4 +52,7 @@ void donate_pri(struct lock *l);
  * reference guide for more information.*/
 #define barrier() asm volatile("" : : : "memory")
 
+// compare semaphore
+bool sema_compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
+
 #endif /* threads/synch.h */

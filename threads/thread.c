@@ -233,6 +233,14 @@ bool thread_compare_donate_priority(const struct list_elem *a, const struct list
 	return sa->priority > sb->priority;
 }
 
+// // add for condvar
+// bool sema_compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+// {
+
+// 	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
+// 	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+// }
+
 void remove_with_lock(struct lock *lock)
 {
 	struct list_elem *e;
