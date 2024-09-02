@@ -24,10 +24,18 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
+int64_t load_avg = 0;
+
+extern struct thread *idle_thread;
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops(unsigned loops);
 static void busy_wait(int64_t loops);
 static void real_time_sleep(int64_t num, int32_t denom);
+
+#define MUL(x, y) (((int64_t) (x)) * ((int64_t) (y)) / F)  // 두 고정 소수점 수를 곱함
+#define MULFI(x, n) (((int64_t) (x)) * (n))  // 고정 소수점을 정수와 곱함
+#define DIV(x, y) (((int64_t) (x)) * F / (y))  // 두 고정 소수점 수를 나눔
 
 /* Sets up the 8254 Programmable Interval Timer (PIT) to
    interrupt PIT_FREQ times per second, and registers the
@@ -136,6 +144,12 @@ timer_interrupt(struct intr_frame *args UNUSED)
 	if (ticks >= 0)
 	{
 		thread_wake(ticks);
+	}
+	if (ticks % TIMER_FREQ == 0) {
+		size_t ready_threads = list_size(&ready_list);
+		if (thread_current() != idle_thread)
+			ready_threads += 1;
+		load_avg = MUL(DIV(FLOAT(59), FLOAT(60)), load_avg) + MULFI(DIV(FLOAT(1), FLOAT(60)), ready_threads);
 	}
 }
 

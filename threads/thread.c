@@ -18,6 +18,8 @@
 // 수면리스트 생성
 static struct list sleep_list;
 
+extern int64_t load_avg;
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -32,7 +34,7 @@ static struct list sleep_list;
 struct list ready_list;
 
 /* Idle thread. */
-static struct thread *idle_thread;
+struct thread *idle_thread;
 
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
@@ -471,7 +473,10 @@ int thread_get_nice(void)
 int thread_get_load_avg(void)
 {
 	/* TODO: Your implementation goes here */
-	return 0;
+	
+	// return 0;
+	int64_t result = INT(load_avg* 100);
+	return result;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
