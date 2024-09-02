@@ -29,7 +29,7 @@ static struct list sleep_list;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+struct list ready_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -209,17 +209,66 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	// 현재 스레드보다 우선 순위가 크면 양보
+	if (t->priority > thread_current()->priority)
+		thread_yield();
 
 	return tid;
 }
 
 // 재울 쓰레드와 현재 sleep_list 의 값들 하나하나 비교 하는 함수
-static bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
 	struct thread *sa = list_entry(a, struct thread, elem);
 	struct thread *sb = list_entry(b, struct thread, elem);
 
 	return sa->priority > sb->priority;
+}
+
+bool thread_compare_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+	struct thread *sa = list_entry(a, struct thread, donation_elem);
+	struct thread *sb = list_entry(b, struct thread, donation_elem);
+
+	return sa->priority > sb->priority;
+}
+
+// // add for condvar
+// bool sema_compare_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+// {
+
+// 	struct semaphore_elem *sa = list_entry(a, struct semaphore_elem, elem);
+// 	struct semaphore_elem *sb = list_entry(b, struct semaphore_elem, elem);
+// }
+
+void remove_with_lock(struct lock *lock)
+{
+	struct list_elem *e;
+	struct thread *curr = thread_current();
+
+	for (e = list_begin(&curr->donators); e != list_end(&curr->donators); e = list_next(e))
+	{
+		struct thread *t = list_entry(e, struct thread, donation_elem);
+		if (t->waiting_lock == lock)
+			// donators 리스트에서 제거. 나 이제 너 안기다려.
+			list_remove(&t->donation_elem);
+	}
+}
+
+void refresh_priority(void)
+{
+	struct thread *curr = thread_current();
+
+	curr->priority = curr->original_priority;
+
+	if (!list_empty(&curr->donators))
+	{
+		list_sort(&curr->donators, thread_compare_donate_priority, 0);
+
+		struct thread *front = list_entry(list_front(&curr->donators), struct thread, donation_elem);
+		if (front->priority > curr->priority)
+			curr->priority = front->priority;
+	}
 }
 
 // 재우는 함수 구현
@@ -296,7 +345,9 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+	// 순서대로 리스트에 넣어주기
+	list_insert_ordered(&ready_list, &t->elem, compare_thread, NULL);
+	// list_push_back(&ready_list, &t->elem);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 }
@@ -363,7 +414,9 @@ void thread_yield(void)
 	old_level = intr_disable();
 	// 현재 쓰레드가 idle이 아니라면, 즉 실행중인 스레드가 있다면
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		// 순서대로 리스트에 넣어주기
+		list_insert_ordered(&ready_list, &curr->elem, compare_thread, NULL);
+	// list_push_back(&ready_list, &curr->elem);
 	do_schedule(THREAD_READY);
 	// 작업이 끝난 후, 이전 인터럽트 상태로 복구
 	intr_set_level(old_level);
@@ -372,7 +425,20 @@ void thread_yield(void)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
-	thread_current()->priority = new_priority;
+	struct thread *curr = thread_current();
+
+	// curr->priority = new_priority;
+	curr->original_priority = new_priority;
+
+	struct list_elem *e = list_begin(&ready_list);
+	struct thread *t = list_entry(e, struct thread, elem);
+	// 도네이터에 있는 스레드의 우선순위보다 실행중인 스레드의 우선순위가 높을 때 처리를 위해.
+	refresh_priority();
+	// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
+	if (t->priority > curr->priority)
+	{
+		thread_yield();
+	}
 }
 
 /* Returns the current thread's priority. */
@@ -473,7 +539,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
-	t->wake_time = 0; // 기상시간 초기화.
+	t->wake_time = 0;				 // 기상시간 초기화.
+	t->original_priority = priority; // 원래 우선순위 초기화
+	list_init(&t->donators);
+	t->waiting_lock = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
