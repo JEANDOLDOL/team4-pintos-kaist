@@ -209,12 +209,13 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	preempt_priority();
 
 	return tid;
 }
 
 // 재울 쓰레드와 현재 sleep_list 의 값들 하나하나 비교 하는 함수
-static bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
 	struct thread *sa = list_entry(a, struct thread, elem);
 	struct thread *sb = list_entry(b, struct thread, elem);
@@ -296,7 +297,7 @@ void thread_unblock(struct thread *t)
 
 	old_level = intr_disable();
 	ASSERT(t->status == THREAD_BLOCKED);
-	list_push_back(&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, compare_thread, NULL);
 	t->status = THREAD_READY;
 	intr_set_level(old_level);
 }
@@ -363,7 +364,7 @@ void thread_yield(void)
 	old_level = intr_disable();
 	// 현재 쓰레드가 idle이 아니라면, 즉 실행중인 스레드가 있다면
 	if (curr != idle_thread)
-		list_push_back(&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, compare_thread, NULL);
 	do_schedule(THREAD_READY);
 	// 작업이 끝난 후, 이전 인터럽트 상태로 복구
 	intr_set_level(old_level);
@@ -373,6 +374,7 @@ void thread_yield(void)
 void thread_set_priority(int new_priority)
 {
 	thread_current()->priority = new_priority;
+	preempt_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -661,4 +663,16 @@ allocate_tid(void)
 	lock_release(&tid_lock);
 
 	return tid;
+}
+
+void preempt_priority(void)
+{
+    if (thread_current() == idle_thread)
+        return;
+    if (list_empty(&ready_list))
+        return;
+    struct thread *curr = thread_current();
+    struct thread *ready = list_entry(list_front(&ready_list), struct thread, elem);
+    if (curr->priority < ready->priority) // ready_list에 현재 실행중인 스레드보다 우선순위가 높은 스레드가 있으면
+        thread_yield();
 }
