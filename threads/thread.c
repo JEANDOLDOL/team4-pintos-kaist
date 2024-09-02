@@ -210,8 +210,7 @@ tid_t thread_create(const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock(t);
 	// 현재 스레드보다 우선 순위가 크면 양보
-	if (t->priority > thread_current()->priority)
-		thread_yield();
+	thread_change();
 
 	return tid;
 }
@@ -249,9 +248,11 @@ void remove_with_lock(struct lock *lock)
 	for (e = list_begin(&curr->donators); e != list_end(&curr->donators); e = list_next(e))
 	{
 		struct thread *t = list_entry(e, struct thread, donation_elem);
-		if (t->waiting_lock == lock)
+		if (t->waiting_lock == lock) {
 			// donators 리스트에서 제거. 나 이제 너 안기다려.
 			list_remove(&t->donation_elem);
+			break;
+		}
 	}
 }
 
@@ -427,17 +428,23 @@ void thread_set_priority(int new_priority)
 {
 	struct thread *curr = thread_current();
 
-	// curr->priority = new_priority;
 	curr->original_priority = new_priority;
 
-	struct list_elem *e = list_begin(&ready_list);
-	struct thread *t = list_entry(e, struct thread, elem);
-	// 도네이터에 있는 스레드의 우선순위보다 실행중인 스레드의 우선순위가 높을 때 처리를 위해.
 	refresh_priority();
-	// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
-	if (t->priority > curr->priority)
-	{
-		thread_yield();
+	
+	thread_change();
+}
+
+void thread_change () {
+	struct thread *curr = thread_current();
+
+	if (!list_empty(&ready_list)) {
+		struct list_elem *e = list_begin(&ready_list);
+		struct thread *t = list_entry(e, struct thread, elem);
+		// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
+		if (t->priority > curr->priority) {
+			thread_yield();
+		}
 	}
 }
 
