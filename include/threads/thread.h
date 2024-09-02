@@ -96,6 +96,7 @@ struct thread
 	int original_priority;	   /* 원래 우선순위 */
 	struct list donators;	   /* 기부자들 명단 */
 	struct lock *waiting_lock; /* 기다리고 있는 락 */
+	int nice;				   /* 나이스값 */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */

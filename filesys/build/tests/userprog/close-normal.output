@@ -1,0 +1,16 @@
+Kernel command line: -q -f put close-normal put sample.txt run close-normal
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  52,377,600 loops/s.
+hd0:0: detected 305 sector (152 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 105 sector (52 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+Formatting file system...Kernel PANIC at ../../filesys/fat.c:125 in fat_create(): FAT creation failed
+Call stack: 0x800421391d 0x8004218d81 0x80042186e8 0x80042184d6 0x8004206151.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Kernel PANIC recursion at ../../devices/timer.c:187 in real_time_sleep().
