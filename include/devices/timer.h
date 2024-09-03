@@ -13,6 +13,8 @@
 #define FLOAT(n) ((n) * F)  // 정수를 고정 소수점으로 변환
 #define INT(n) ((n) / F)  // 고정 소수점을 정수로 변환
 
+#define DIVFI(x, n) ((x) / (n))  // 고정 소수점을 정수로 나눔
+
 void timer_init (void);
 void timer_calibrate (void);
 

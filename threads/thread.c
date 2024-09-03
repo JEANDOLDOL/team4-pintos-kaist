@@ -33,6 +33,8 @@ extern int64_t load_avg;
    that are ready to run but not actually running. */
 struct list ready_list;
 
+struct list all_thread_list;
+
 /* Idle thread. */
 struct thread *idle_thread;
 
@@ -114,6 +116,7 @@ void thread_init(void)
 	list_init(&destruction_req);
 	// 슬립 리스트 초기화. 스레드 이닛은 보통 한 번만 실행된다는데 함 봐야 알듯.
 	list_init(&sleep_list);
+	list_init(&all_thread_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -211,6 +214,8 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+
+	// list_push_back(&all_thread_list, &thread_current()->all_elem);
 	// 현재 스레드보다 우선 순위가 크면 양보
 	thread_change();
 
@@ -262,7 +267,14 @@ void refresh_priority(void)
 {
 	struct thread *curr = thread_current();
 
-	curr->priority = curr->original_priority;
+	// curr->priority = curr->original_priority;
+	// curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (thread_get_nice() * 2);
+	curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (curr->nice * 2);
+	// if (curr->priority < PRI_MIN) {
+	// 	curr->priority = PRI_MIN;
+	// } else if (curr->priority > PRI_MAX) {
+	// 	curr->priority = PRI_MAX;
+	// }
 
 	if (!list_empty(&curr->donators))
 	{
@@ -400,6 +412,7 @@ void thread_exit(void)
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable();
+	list_remove(&thread_current()->all_elem);
 	do_schedule(THREAD_DYING);
 	NOT_REACHED();
 }
@@ -460,30 +473,36 @@ int thread_get_priority(void)
 void thread_set_nice(int nice UNUSED)
 {
 	/* TODO: Your implementation goes here */
+	thread_current()->nice = nice;
+
+	refresh_priority();
+
+	thread_change();
 }
 
 /* Returns the current thread's nice value. */
 int thread_get_nice(void)
 {
 	/* TODO: Your implementation goes here */
-	return 0;
+
+	return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int thread_get_load_avg(void)
 {
 	/* TODO: Your implementation goes here */
-	
-	// return 0;
-	int64_t result = INT(load_avg* 100);
-	return result;
+
+	return INT(load_avg* 100);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int thread_get_recent_cpu(void)
 {
 	/* TODO: Your implementation goes here */
-	return 0;
+
+	// return thread_current()->recent_cpu * 100;
+	return INT(thread_current()->recent_cpu * 100);
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -555,6 +574,10 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->original_priority = priority; // 원래 우선순위 초기화
 	list_init(&t->donators);
 	t->waiting_lock = NULL;
+	t->recent_cpu = 0;
+	t->nice = 0;
+
+	list_push_back(&all_thread_list, &t->all_elem);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
