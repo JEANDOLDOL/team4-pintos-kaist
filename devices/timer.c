@@ -144,12 +144,12 @@ timer_interrupt(struct intr_frame *args UNUSED)
 	ticks++;
 	thread_tick();
 	
-	struct thread *curr = thread_current();
-	if (curr != idle_thread) {
-		curr->recent_cpu = ADDFI(curr->recent_cpu, 1);
-	}
-	
 	if (thread_mlfqs) {
+		struct thread *curr = thread_current();
+		if (curr != idle_thread) {
+			curr->recent_cpu = ADDFI(curr->recent_cpu, 1);
+		}
+	
 		if (ticks % TIMER_FREQ == 0) {
 			size_t ready_threads = list_size(&ready_list);
 			if (curr != idle_thread)

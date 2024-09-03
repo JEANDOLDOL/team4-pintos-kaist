@@ -267,14 +267,10 @@ void refresh_priority(void)
 {
 	struct thread *curr = thread_current();
 
-	// curr->priority = curr->original_priority;
+	curr->priority = curr->original_priority;
 	// curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (thread_get_nice() * 2);
-	curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (curr->nice * 2);
-	// if (curr->priority < PRI_MIN) {
-	// 	curr->priority = PRI_MIN;
-	// } else if (curr->priority > PRI_MAX) {
-	// 	curr->priority = PRI_MAX;
-	// }
+	if (thread_mlfqs)
+		curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (curr->nice * 2);
 
 	if (!list_empty(&curr->donators))
 	{
