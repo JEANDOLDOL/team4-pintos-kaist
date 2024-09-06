@@ -109,9 +109,12 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters))
+	if (!list_empty (&sema->waiters)) {
+		list_sort(&sema->waiters, compare_thread, NULL); //추가하니깐 싹다 fail 왜 안되냐 진짜 시이이이이이이이바아아아아아아아알
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
+	}
+		
 	sema->value++;
 	intr_set_level (old_level);
 }
@@ -188,8 +191,23 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	donate_priority(lock);
+
 	sema_down (&lock->semaphore);
-	lock->holder = thread_current ();
+	lock->holder = thread_current (); 
+}
+
+void donate_priority(struct lock *lock)
+{
+	struct thread *curr = thread_current();
+
+	if (lock->holder)
+	{
+		if(curr->priority > lock->holder->priority)
+		{
+			lock->holder->priority = curr->priority;
+		}
+	}
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -223,7 +241,12 @@ lock_release (struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	lock->holder = NULL;
+
+	struct thread *curr = thread_current();
+	curr->priority = curr->origin_priority;
+
 	sema_up (&lock->semaphore);
+	preempt_priority();	
 }
 
 /* Returns true if the current thread holds LOCK, false

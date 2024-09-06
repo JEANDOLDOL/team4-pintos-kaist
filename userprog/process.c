@@ -184,6 +184,8 @@ process_exec (void *f_name) {
 	if (!success)
 		return -1;
 
+
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);	
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -204,6 +206,8 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	int i = 0;
+	while(i <= 1<<29){i++;}
 	return -1;
 }
 
@@ -335,6 +339,15 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
+	char *token, *save_ptr;
+	char *argv[128];
+	int idx = 0;
+
+	for(token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)){
+		argv[idx++] = token;
+		printf("token : %s\n", token);
+	}
+
 	/* Open executable file. */
 	file = filesys_open (file_name);
 	if (file == NULL) {
@@ -416,13 +429,49 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-
+	argument_stack(argv, idx, if_);
+	
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
 	return success;
+}
+
+void
+argument_stack(char **argv, int argc, struct intr_frame *if_)
+{
+	char *address[128];
+	
+	for(int i = argc - 1; i >=0; i--)
+	{
+		int argv_len = strlen(argv[i]);
+		if_->rsp = if_->rsp - (argv_len+1) ;
+		memcpy(if_->rsp, argv[i], argv_len);
+		address[i] = if_->rsp;
+	}
+
+	while(if_->rsp % 8 != 0 )
+	{
+		(if_->rsp)--;
+		*(uint8_t *)if_->rsp = 0;
+	}
+
+	if_->rsp = if_->rsp - (8);
+	memset(if_->rsp, 0, 8);
+
+	for(int i = argc - 1; i >=0; i--)
+	{
+		if_->rsp = if_->rsp - (8);
+		memcpy(if_->rsp, &address[i], 8);
+	}
+
+	if_-> R.rdi = argc;
+	if_-> R.rsi = if_->rsp;
+
+	if_->rsp = if_->rsp - (8);
+	memset(if_->rsp, 0, 8);
 }
 
 
