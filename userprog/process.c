@@ -168,21 +168,35 @@ process_exec (void *f_name) {
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
+	// 스레드 구조체에서 intr_frame 사용 불가
+	// CPU가 인터럽트를 처리할 떄 저장해야 할 레지스터와 플래그를 포함하는 구조체
 	struct intr_frame _if;
+	// SEL_UDSEG : 유저 모드 데이터 세그먼트 셀렉터
+	// CPU가 유저 모드에서 데이터를 접근할 때 사용할 세그먼트
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
+	// SEL_UCSEG : 유저 모드 코드 세그먼트 셀렉터
+	// 유저 모드에서 실행될 코드가 위치한 세그먼트
 	_if.cs = SEL_UCSEG;
+	// FLAG_IF : 인터럽트 플래그
+	// CPU가 외부 인터럽트를 받아들일 수 있음
+	// FLAG_MBS : Must Be Set
+	// eflags 레지스터의 특정 비트는 항상 1로 설정되어야 함
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
 	/* We first kill the current context */
 	process_cleanup ();
 
 	/* And then load the binary */
+	// 새로운 프로세스가 실행될 때 intr_frame에 저장된 값들이 CPU에 로드되므로
+	// intr_frame에 초기 인자 저장
 	success = load (file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
+
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -204,6 +218,10 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	int i = 0;
+	while(i <= 1<<29){
+		i++;
+	}
 	return -1;
 }
 
@@ -316,6 +334,39 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes,
 		bool writable);
 
+void argument_stack(char **argv, int argc, struct intr_frame *if_) {
+	char *address[128];
+
+	for (int i = argc-1; i>=0; i--) {
+		int len = strlen(argv[i]);
+
+		if_->rsp = if_->rsp - (len+1);
+		memcpy(if_->rsp, argv[i], len+1);
+		address[i] = if_->rsp;
+	}
+	
+	while (if_->rsp % 8 != 0) {
+		if_->rsp--;
+		*(uint8_t *)if_->rsp = 0;
+	}
+
+	// null pointer sentinel push
+	if_->rsp -= 8;
+	*(char **)if_->rsp = NULL;
+
+	for (int i = argc; i>=0; i--) {
+		if_->rsp = if_->rsp - 8;	
+		memcpy(if_->rsp, &address[i], 8);
+	}
+
+	// %rdi = argc, %rsi = argv
+	if_->R.rdi = argc;
+	if_->R.rsi = if_->rsp;
+
+	if_->rsp = if_->rsp - 8;
+	memset(if_->rsp, 0, sizeof(void *));
+}
+
 /* Loads an ELF executable from FILE_NAME into the current thread.
  * Stores the executable's entry point into *RIP
  * and its initial stack pointer into *RSP.
@@ -335,13 +386,26 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
+	// 공백을 기준으로 단어 분리
+	char *token, *save_ptr;
+	char *argv[128];
+	int idx = 0;
+
+	// token = strtok_r (file_name, " ", &save_ptr);
+	for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
+		argv[idx++] = token;
+		printf("token : %s\n", token);
+	}
+
 	/* Open executable file. */
-	file = filesys_open (file_name);
+	// 수정
+	printf("arg : %s\n", argv[0]);
+	file = filesys_open (argv[0]);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-
+	printf("1\n");
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -413,10 +477,13 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
-
+	printf("2\n");
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	argument_stack(argv, idx, if_);
 
+	// msg("%s", *(char **)if_->R.rsi);
+	printf("3\n");
 	success = true;
 
 done:

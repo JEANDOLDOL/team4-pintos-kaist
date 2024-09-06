@@ -446,18 +446,39 @@ void thread_set_priority(int new_priority)
 	thread_change();
 }
 
-void thread_change () {
+void thread_change(void)
+{
 	struct thread *curr = thread_current();
 
-	if (!list_empty(&ready_list)) {
+	if (!list_empty(&ready_list))
+	{
 		struct list_elem *e = list_begin(&ready_list);
 		struct thread *t = list_entry(e, struct thread, elem);
 		// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
-		if (t->priority > curr->priority) {
-			thread_yield();
+		if (t->priority > curr->priority)
+		{
+			// thread_yield();
+			if (intr_context())
+				intr_yield_on_return();
+			else
+				thread_yield();
 		}
 	}
 }
+
+// void thread_change () {
+// 	struct thread *curr = thread_current();
+
+// 	if (!list_empty(&ready_list)) {
+// 		struct list_elem *e = list_begin(&ready_list);
+// 		struct thread *t = list_entry(e, struct thread, elem);
+// 		// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
+// 		if (t->priority > curr->priority) {
+// 			thread_yield();
+			
+// 		}
+// 	}
+// }
 
 /* Returns the current thread's priority. */
 int thread_get_priority(void)
