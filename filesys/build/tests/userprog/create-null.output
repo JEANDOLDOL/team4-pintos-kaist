@@ -1,0 +1,16 @@
+Kernel command line: -q -f put create-null run create-null
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  52,377,600 loops/s.
+hd0:0: detected 305 sector (152 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 20,160 sector (9 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 102 sector (51 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+Kernel PANIC at ../../threads/thread.c:403 in thread_yield(): assertion `!intr_context()' failed.
+Call stack: 0x800421391d 0x8004207504 0x8004209f02 0x800420fee4 0x8004208cd3 0x80042090f1 0x8004207709.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Kernel PANIC recursion at ../../threads/synch.c:203 in lock_acquire().
