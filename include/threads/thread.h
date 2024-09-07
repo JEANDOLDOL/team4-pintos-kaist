@@ -102,13 +102,16 @@ struct thread
 	int original_priority;	   /* 원래 우선순위 */
 	struct list donators;	   /* 기부자들 명단 */
 	struct lock *waiting_lock; /* 기다리고 있는 락 */
+
 	int nice;				   /* 나이스값 */
 	int recent_cpu;			   /* recent_cpu */
 	struct list_elem all_elem; /* for advanced scheduler*/
 
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
 	struct list_elem donation_elem;
+	struct list_elem all_elem;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

@@ -41,6 +41,8 @@ static int load_avg;
 // 수면리스트 생성
 static struct list sleep_list;
 
+extern int64_t load_avg;
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -54,8 +56,10 @@ static struct list sleep_list;
    that are ready to run but not actually running. */
 struct list ready_list;
 
+struct list all_thread_list;
+
 /* Idle thread. */
-static struct thread *idle_thread;
+struct thread *idle_thread;
 
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
@@ -135,11 +139,13 @@ void thread_init(void)
 	list_init(&destruction_req);
 	// 슬립 리스트 초기화. 스레드 이닛은 보통 한 번만 실행된다는데 함 봐야 알듯.
 	list_init(&sleep_list);
+
 	list_init(&all_list);
 
 	// /** project1-Advanced Scheduler */
 	// if (thread_mlfqs)
 	// 	list_push_back(&all_list, &(initial_thread->all_elem));
+
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -239,6 +245,8 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+
+	// list_push_back(&all_thread_list, &thread_current()->all_elem);
 	// 현재 스레드보다 우선 순위가 크면 양보
 	thread_change();
 
@@ -292,6 +300,9 @@ void refresh_priority(void)
 	struct thread *curr = thread_current();
 
 	curr->priority = curr->original_priority;
+	// curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (thread_get_nice() * 2);
+	if (thread_mlfqs)
+		curr->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (curr->nice * 2);
 
 	if (!list_empty(&curr->donators))
 	{
@@ -431,6 +442,7 @@ void thread_exit(void)
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable();
+	list_remove(&thread_current()->all_elem);
 	do_schedule(THREAD_DYING);
 	NOT_REACHED();
 }
@@ -491,6 +503,20 @@ void thread_change(void)
 	}
 }
 
+// void thread_change () {
+// 	struct thread *curr = thread_current();
+
+// 	if (!list_empty(&ready_list)) {
+// 		struct list_elem *e = list_begin(&ready_list);
+// 		struct thread *t = list_entry(e, struct thread, elem);
+// 		// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
+// 		if (t->priority > curr->priority) {
+// 			thread_yield();
+			
+// 		}
+// 	}
+// }
+
 /* Returns the current thread's priority. */
 int thread_get_priority(void)
 {
@@ -501,6 +527,7 @@ int thread_get_priority(void)
 void thread_set_nice(int nice UNUSED)
 {
 	/* TODO: Your implementation goes here */
+
 	// 나이스 재할당 & 새 값에 따라 우선순위 재계산
 	struct thread *t = thread_current();
 
@@ -509,12 +536,14 @@ void thread_set_nice(int nice UNUSED)
 	mlfqs_priority(t);
 	thread_change();
 	intr_set_level(old_level);
+
 }
 
 /* Returns the current thread's nice value. */
 int thread_get_nice(void)
 {
 	/* TODO: Your implementation goes here */
+
 	// 나이스 반환
 	struct thread *t = thread_current();
 
@@ -523,6 +552,7 @@ int thread_get_nice(void)
 	intr_set_level(old_level);
 
 	return nice;
+
 }
 
 /* Returns 100 times the system load average. */
@@ -530,17 +560,20 @@ int thread_get_load_avg(void)
 {
 	/* TODO: Your implementation goes here */
 
+
 	enum intr_level old_level = intr_disable();
 	int load_avg_val = INT(MULFI(load_avg, 100));
 	intr_set_level(old_level);
 
 	return load_avg_val;
+
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int thread_get_recent_cpu(void)
 {
 	/* TODO: Your implementation goes here */
+
 	struct thread *t = thread_current();
 
 	enum intr_level old_level = intr_disable();
@@ -548,6 +581,7 @@ int thread_get_recent_cpu(void)
 	intr_set_level(old_level);
 
 	return recent_cpu;
+
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -619,6 +653,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->original_priority = priority; // 원래 우선순위 초기화
 	list_init(&t->donators);
 	t->waiting_lock = NULL;
+
 	t->nice = NICE_DEFAULT;
 	t->recent_cpu = RECENT_CPU_DEFAULT;
 
@@ -632,6 +667,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	{
 		t->priority = priority;
 	}
+
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
