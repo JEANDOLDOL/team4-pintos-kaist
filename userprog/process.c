@@ -403,28 +403,6 @@ load(const char *file_name, struct intr_frame *if_)
 		printf("token : %s\n", ret_ptr);
 		ret_ptr = strtok_r(NULL, " ", &next_ptr);
 	}
-	// char *token, *save_ptr;
-	// char *argv[128];
-	// int idx = 0;
-
-	// // token = strtok_r (file_name, " ", &save_ptr);
-	// for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
-	// {
-	// 	argv[idx++] = token;
-	// 	printf("token : %s\n", token);
-	// }
-
-	// // 걍 여기서 미리 파싱하되, 원본 배열은 변경하지 말자
-	// char *token, *save_ptr;
-	// char *file_name_copy;
-	// char *file_name_only;
-
-	// /* 파일 이름을 변경하지 않기 위해 복사본을 만듭니다. */
-	// file_name_copy = malloc(strlen(file_name) + 1);
-	// strlcpy(file_name_copy, file_name, strlen(file_name) + 1);
-
-	// /* 첫 번째 토큰을 추출하여 실행 파일의 이름으로 사용합니다. */
-	// file_name_only = strtok_r(file_name_copy, " ", &save_ptr);
 
 	// /* 실행 파일 열기 */
 	// file = filesys_open(file_name_only);
@@ -436,7 +414,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 	// 기존 함수 주석 처리.
 	/* Open executable file. */
-	printf("arg : %s\n", argv[0]);
 	file = filesys_open(argv[0]);
 	if (file == NULL)
 	{
