@@ -482,7 +482,11 @@ void thread_change(void)
 		// 만약 현재 스레드가 더이상 가장 큰 우선순위가 아니면 CPU양보
 		if (t->priority > curr->priority)
 		{
-			thread_yield();
+			// thread_yield();
+			if (intr_context())
+				intr_yield_on_return();
+			else
+				thread_yield();
 		}
 	}
 }
