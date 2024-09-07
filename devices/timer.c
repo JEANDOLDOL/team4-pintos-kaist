@@ -143,27 +143,38 @@ timer_interrupt(struct intr_frame *args UNUSED)
 {
 	ticks++;
 	thread_tick();
+	
+	if (thread_mlfqs) {
+		struct thread *curr = thread_current();
+		if (curr != idle_thread) {
+			curr->recent_cpu = ADDFI(curr->recent_cpu, 1);
+		}
+	
+		if (ticks % TIMER_FREQ == 0) {
+			size_t ready_threads = list_size(&ready_list);
+			if (curr != idle_thread)
+				ready_threads += 1;
+			load_avg = MUL(DIV(FLOAT(59), FLOAT(60)), load_avg) + MULFI(DIV(FLOAT(1), FLOAT(60)), ready_threads);
 
-	if (thread_mlfqs)
-	{
-		mlfqs_increment();
+			for (struct list_elem *e = list_begin(&all_thread_list); e != list_end(&all_thread_list); e = list_next(e)) {
+				struct thread *t = list_entry(e, struct thread, all_elem);
+				int64_t recent_cpu = t->recent_cpu;
+				int64_t temp = DIV(MUL(FLOAT(2), load_avg), ADDFI(MUL(FLOAT(2), load_avg), 1));
+				t->recent_cpu = ADDFI(MUL(temp, recent_cpu), t->nice);
+			}
+		}
 
-		if (!(ticks % 4))
-		{
-			mlfqs_recalc_priority();
-
-			if (!(ticks % TIMER_FREQ))
-			{
-				mlfqs_load_avg();
-				mlfqs_recalc_recent_cpu();
+		if (ticks % 4 == 0) {
+			for (struct list_elem *e = list_begin(&all_thread_list); e != list_end(&all_thread_list); e = list_next(e)) {
+				struct thread *t = list_entry(e, struct thread, all_elem);
+				t->priority = PRI_MAX - INT(DIVFI(t->recent_cpu, 4)) - (t->nice * 2);
+				// t->priority = PRI_MAX - INT(DIVFI(curr->recent_cpu, 4)) - (thread_get_nice() * 2);
 			}
 		}
 	}
-	if (ticks >= 0)
-	{
-		thread_wake(ticks);
-	}
 
+	thread_wake(ticks);
+	
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
