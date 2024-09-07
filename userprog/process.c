@@ -357,7 +357,7 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_)
 	if_->rsp -= 8;
 	*(char **)if_->rsp = NULL;
 
-	for (int i = argc; i >= 0; i--)
+	for (int i = argc - 1; i >= 0; i--)
 	{
 		if_->rsp = if_->rsp - 8;
 		memcpy(if_->rsp, &address[i], 8);
@@ -497,13 +497,13 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-	printf("여기까지 옴?");
+	printf("여기까지 옴?\n");
 	argument_stack(argv, argc, if_);
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	printf("arrived");
+	printf("arrived\n");
 	file_close(file);
 	return success;
 }
