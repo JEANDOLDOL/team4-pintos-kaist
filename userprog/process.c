@@ -211,7 +211,6 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	// 이 새끼때문에 계속 오류남 성희야 고맙다!!
 	int i = 0;
 	while (i <= 1 << 29)
 	{
@@ -392,17 +391,29 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	process_activate(thread_current());
 
-	// 파싱
-	int argc = 0;
+	// 공백을 기준으로 단어 분리
+	char *token, *save_ptr;
 	char *argv[128];
-	char *ret_ptr, *next_ptr;
-	ret_ptr = strtok_r(file_name, " ", &next_ptr);
-	while (ret_ptr)
+	int argc = 0;
+
+	// token = strtok_r (file_name, " ", &save_ptr);
+	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
 	{
-		argv[argc++] = ret_ptr;
-		printf("token : %s\n", ret_ptr);
-		ret_ptr = strtok_r(NULL, " ", &next_ptr);
+		argv[argc++] = token;
+		printf("token : %s\n", token);
 	}
+
+	// 파싱
+	// int argc = 0;
+	// char *argv[128];
+	// char *ret_ptr, *next_ptr;
+	// ret_ptr = strtok_r(file_name, " ", &next_ptr);
+	// while (ret_ptr)
+	// {
+	// 	argv[argc++] = ret_ptr;
+	// 	printf("token : %s\n", ret_ptr);
+	// 	ret_ptr = strtok_r(NULL, " ", &next_ptr);
+	// }
 
 	// /* 실행 파일 열기 */
 	// file = filesys_open(file_name_only);
@@ -497,7 +508,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
-	printf("여기까지 옴?\n");
 	argument_stack(argv, argc, if_);
 	success = true;
 
