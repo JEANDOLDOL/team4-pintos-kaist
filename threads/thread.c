@@ -12,6 +12,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "devices/timer.h"
+#include "threads/malloc.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -137,10 +138,6 @@ void thread_init(void)
 	list_init(&sleep_list);
 	list_init(&all_list);
 
-	// /** project1-Advanced Scheduler */
-	// if (thread_mlfqs)
-	// 	list_push_back(&all_list, &(initial_thread->all_elem));
-
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
 	init_thread(initial_thread, "main", PRI_DEFAULT);
@@ -239,6 +236,16 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	t->fd_table = malloc(sizeof(struct file *) * 1024);
+	if (t->fd_table == NULL) {
+		PANIC("Memory allocation for fd_table failed");
+	}
+	else {
+		*(t->fd_table) = NULL;
+		*(t->fd_table+1) = NULL;
+		*(t->fd_table+2) = NULL;
+	}
+	
 	// 현재 스레드보다 우선 순위가 크면 양보
 	thread_change();
 
@@ -423,6 +430,9 @@ void thread_exit(void)
 	ASSERT(!intr_context());
 
 #ifdef USERPROG
+	struct thread *curr = thread_current();
+	if (curr->fd_table != NULL)
+		free(curr->fd_table);
 	process_exit();
 #endif
 	if (thread_mlfqs)
@@ -621,6 +631,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->waiting_lock = NULL;
 	t->nice = NICE_DEFAULT;
 	t->recent_cpu = RECENT_CPU_DEFAULT;
+	t->exit_status = 0;
+	
+	t->max_fd = 2;
 
 	/** project1-Advanced Scheduler */
 	if (thread_mlfqs)

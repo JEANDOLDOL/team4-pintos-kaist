@@ -105,6 +105,9 @@ struct thread
 	int nice;				   /* 나이스값 */
 	int recent_cpu;			   /* recent_cpu */
 	struct list_elem all_elem; /* for advanced scheduler*/
+	int exit_status;
+	struct file **fd_table;
+	int max_fd;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */

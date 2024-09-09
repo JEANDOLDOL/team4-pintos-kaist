@@ -51,8 +51,9 @@ tid_t process_create_initd(const char *file_name)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
 
+	char *save_ptr;
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create(strtok_r(file_name, " ", &save_ptr), PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -190,7 +191,7 @@ int process_exec(void *f_name)
 		return -1;
 
 	// 디버그
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* Start switched process. */
 	do_iret(&_if);
@@ -212,20 +213,27 @@ int process_wait(tid_t child_tid UNUSED)
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
 	int i = 0;
-	while (i <= 1 << 29)
+	while (i < 1 << 30)
 	{
 		i++;
 	}
+	i = 0;
+	while (i < 1 << 30)
+	{
+		i++;
+	}
+	return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
 void process_exit(void)
 {
-	struct thread *curr = thread_current();
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	// struct thread *curr = thread_current();
+	// printf ("%s: exit(%d)\n", curr->name, curr->exit_status);
 
 	process_cleanup();
 }
@@ -396,34 +404,9 @@ load(const char *file_name, struct intr_frame *if_)
 	char *argv[128];
 	int argc = 0;
 
-	// token = strtok_r (file_name, " ", &save_ptr);
 	for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
-	{
 		argv[argc++] = token;
-		printf("token : %s\n", token);
-	}
 
-	// 파싱
-	// int argc = 0;
-	// char *argv[128];
-	// char *ret_ptr, *next_ptr;
-	// ret_ptr = strtok_r(file_name, " ", &next_ptr);
-	// while (ret_ptr)
-	// {
-	// 	argv[argc++] = ret_ptr;
-	// 	printf("token : %s\n", ret_ptr);
-	// 	ret_ptr = strtok_r(NULL, " ", &next_ptr);
-	// }
-
-	// /* 실행 파일 열기 */
-	// file = filesys_open(file_name_only);
-	// if (file == NULL)
-	// {
-	// 	printf("load: %s: open failed\n", file_name_only);
-	// 	goto done;
-	// }
-
-	// 기존 함수 주석 처리.
 	/* Open executable file. */
 	file = filesys_open(argv[0]);
 	if (file == NULL)
@@ -513,7 +496,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	printf("arrived\n");
 	file_close(file);
 	return success;
 }
