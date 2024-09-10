@@ -10,6 +10,7 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "threads/init.h"
+#include "devices/input.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -53,6 +54,11 @@ exit (int status) {
 	thread_exit();
 }
 
+// pid_t
+// fork (const char *thread_name){
+// 	process_fork();
+// }
+
 void check_address(const uint64_t *addr) {
 	struct thread *curr = thread_current();
 	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(curr->pml4, addr) == NULL)
@@ -85,31 +91,81 @@ open (const char *file) {
 	return -1;
 }
 
+int
+filesize (int fd) {
+	struct thread *curr = thread_current();
+	// file 찾기
+	struct file *file = *(curr->fd_table + fd);
+	if (file == NULL)
+		return -1;
+	return file_length(file);
+}
+
+void check_fd(const int fd) {
+	struct thread *curr = thread_current();
+	if (fd < 0 || fd > curr->max_fd)
+		exit(-1);
+}
+
+int
+read (int fd, void *buffer, unsigned size) {
+	check_fd(fd);
+	check_address(buffer);
+	
+	struct thread *curr = thread_current();
+	int bytes = 0;
+
+	if (fd == 0) {
+		for (unsigned i = 0; i< size; i++)
+			*((char *)buffer + i) = input_getc();
+		bytes = size;
+	}
+	else if (fd >=3) {
+		// file 찾기
+		struct file *file = *(curr->fd_table + fd);
+		if (file == NULL)
+			return -1;
+		bytes = file_read(file, buffer, size);
+	}
+	
+	return bytes;
+}
+
 void
 close (int fd) {
-	// check_address(fd);
+	check_fd(fd);
 	struct thread *curr = thread_current();
-
 	// file 찾기
-	file_close(*(curr->fd_table + fd));
+	struct file *file = *(curr->fd_table + fd);
+	if (file == NULL)
+		exit(-1);
+	file_close(file);
+	if (fd == curr->max_fd)
+		curr->max_fd--;
+	*(curr->fd_table + fd) = NULL;
 }
 
 int
 write (int fd, const void *buffer, unsigned size) {
+	check_fd(fd);
+	check_address(buffer);
 	// fd 활용하여 file 찾기
 	if (fd == 1) {
 		//콘솔에 작성
 		putbuf(buffer, size);
 		return size;
 	}
-	// else if (fd >= 3) {
-	// 	struct thread *curr = thread_current();
-	// 	struct file *file = *(curr->fd_table + fd);
+	else if (fd >= 3) {
+		struct thread *curr = thread_current();
+		struct file *file = *(curr->fd_table + fd);
 
-	// 	// buffer에서 fd 파일로 size 바이트만큼 쓰기
-	// 	return file_write(file, buffer, size);
-	// }
-	// return 0;
+		if (file == NULL)
+			return -1;
+
+		// buffer에서 fd 파일로 size 바이트만큼 쓰기
+		return file_write(file, buffer, size);
+	}
+	return 0;
 	
 	// 만약 몇 바이트가 안 읽혔다면 size보다 작을 실제로 쓴 바이트 수 반환
 	// 파일 끝 부분까지 쓰고 더 이상 쓸 수 없는 경우 0 반환
@@ -122,74 +178,61 @@ void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 	// 시스템 콜 번호와 인수를 찾고 적절한 작업 수행 필요
-	// 시스템 콜 호출 위해 syscall 부름
 	// %rax 는 시스템 콜 번호
 	// 인수는 %rdi , %rsi, %rdx, %r10, %r8, %r9 순서로 넘겨짐
 	// intr_frame 통해 레지스터 상태 접근
 	// %rax 에 함수 리턴값 배치
-
-	// struct thread *t = thread_current();
-	// t->tf = *f;
 	 
 	switch (f->R.rax)
 	{
-	case SYS_HALT:
-		halt();
-		break;
-	case SYS_EXIT:
-		exit(f->R.rdi);
-		break;
-	// case SYS_FORK:
-	// 	fork(f->R.rdi);
-	// 	break;
-	// case SYS_EXEC:
-	// 	exec();
-	// 	break;
-	// case SYS_WAIT:
-	// 	wait();
-	// 	break;
-	case SYS_CREATE:
-		f->R.rax = create((char *)f->R.rdi, f->R.rsi);
-		break;
-	// case SYS_REMOVE:
-	// 	create(f->R.rdi, f->R.rsi);
-	// 	break;
-	case SYS_OPEN:
-		f->R.rax = open((char *)f->R.rdi);
-		break;
-	// case SYS_FILESIZE:
-	// 	open(f->R.rdi);
-	// 	break;
-	// case SYS_READ:
-	// 	open(f->R.rdi);
-	// 	break;
-	case SYS_WRITE:
-		write(f->R.rdi, (void *)f->R.rsi, f->R.rdx);
-		break;
-	// case SYS_SEEK:
-	// 	open(f->R.rdi);
-	// 	break;
-	// case SYS_TELL:
-	// 	open(f->R.rdi);
-	// 	break;
-	case SYS_CLOSE:
-		close(f->R.rdi);
-		break;
-	
-	default:
-		exit(-1);
-		break;
+		case SYS_HALT:
+			halt();
+			break;
+		case SYS_EXIT:
+			exit(f->R.rdi);
+			break;
+		// case SYS_FORK:
+		// 	fork(f->R.rdi);
+		// 	break;
+		// case SYS_EXEC:
+		// 	exec();
+		// 	break;
+		// case SYS_WAIT:
+		// 	wait();
+		// 	break;
+		case SYS_CREATE:
+			f->R.rax = create((char *)f->R.rdi, f->R.rsi);
+			break;
+		// case SYS_REMOVE:
+		// 	create(f->R.rdi, f->R.rsi);
+		// 	break;
+		case SYS_OPEN:
+			f->R.rax = open((char *)f->R.rdi);
+			break;
+		case SYS_FILESIZE:
+			f->R.rax = filesize(f->R.rdi);
+			break;
+		case SYS_READ:
+			f->R.rax = read(f->R.rdi, (void *)f->R.rsi, f->R.rdx);
+			break;
+		case SYS_WRITE:
+			f->R.rax = write(f->R.rdi, (void *)f->R.rsi, f->R.rdx);
+			break;
+		// case SYS_SEEK:
+		// 	open(f->R.rdi);
+		// 	break;
+		// case SYS_TELL:
+		// 	open(f->R.rdi);
+		// 	break;
+		case SYS_CLOSE:
+			close(f->R.rdi);
+			break;
+		
+		default:
+			exit(-1);
+			break;
 	}
 
 	// printf ("system call!\n");
 	// thread_exit ();
 }
-
-// pid_t
-// fork (const char *thread_name){
-	
-// }
-
-
-
-
