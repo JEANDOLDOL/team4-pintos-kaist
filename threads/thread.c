@@ -209,8 +209,17 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
+	t->fd_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->fd_table == NULL) {
+		return TID_ERROR;
+	}
+	t->fdidx = 2; // 0은 stdin, 1은 stdout에 이미 할당
+	t->fd_table[0] = 1; // stdin 자리: 1 배정
+	t->fd_table[1] = 2; // stdout 자
 	preempt_priority();
 
+	
+	
 	return tid;
 }
 
@@ -476,6 +485,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 	t->wake_time = 0; // 기상시간 초기화.
+	t->exit_status = 0;
 
 	t->origin_priority = priority;
 }
@@ -675,6 +685,11 @@ void preempt_priority(void)
         return;
     struct thread *curr = thread_current();
     struct thread *ready = list_entry(list_front(&ready_list), struct thread, elem);
-    if (curr->priority < ready->priority) // ready_list에 현재 실행중인 스레드보다 우선순위가 높은 스레드가 있으면
-        thread_yield();
+    if (curr->priority < ready->priority) {// ready_list에 현재 실행중인 스레드보다 우선순위가 높은 스레드가 있으면
+        if (intr_context())
+			intr_yield_on_return();
+		else
+			thread_yield();
+			// 인터럽트 컨텍스트에서 스레드 예일드가 실행이 되면 안된다. why?
+	}
 }

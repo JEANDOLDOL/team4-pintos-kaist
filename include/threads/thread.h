@@ -98,6 +98,11 @@ struct thread
 	struct list_elem elem; /* List element. */
 
 	int origin_priority;
+	int exit_status;
+
+	int fdidx;
+	struct file **fd_table;
+	
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -153,5 +158,9 @@ void thread_wake(int64_t ticks);
 
 void preempt_priority(void);
 bool compare_thread(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+#define FDT_PAGES 3
+#define FDT_COUNT_LIMIT FDT_PAGES *(1<<9) // limit fdidx
+
 
 #endif /* threads/thread.h */

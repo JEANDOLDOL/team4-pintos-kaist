@@ -24,6 +24,7 @@
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
+void argument_stack(char **argv, int argc, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 
@@ -49,9 +50,9 @@ process_create_initd (const char *file_name) {
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
-
+	char *save;
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (strtok_r(file_name, " ", &save), PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	return tid;
@@ -185,7 +186,7 @@ process_exec (void *f_name) {
 		return -1;
 
 
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);	
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);	
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -345,7 +346,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	for(token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)){
 		argv[idx++] = token;
-		printf("token : %s\n", token);
+		// printf("token : %s\n", token);
 	}
 
 	/* Open executable file. */
@@ -439,6 +440,7 @@ done:
 	return success;
 }
 
+// 스택에 데이터랑 주소값을 집어넣자.
 void
 argument_stack(char **argv, int argc, struct intr_frame *if_)
 {

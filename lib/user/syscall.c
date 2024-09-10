@@ -77,7 +77,8 @@ halt (void) {
 void
 exit (int status) {
 	syscall1 (SYS_EXIT, status);
-	NOT_REACHED ();
+	// NOT_REACHED ();
+
 }
 
 pid_t
