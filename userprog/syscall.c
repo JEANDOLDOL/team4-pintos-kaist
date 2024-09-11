@@ -153,15 +153,35 @@ int write(int fd, const void *buffer, unsigned size)
   // write는 eof에 도달할 때 까지 최대한 많은 바이트를 작성해야 함. 그리고 실제로 작성된 바이트를 반환함.
   // 아무것도 작성되지 않았다면, 0을 반환.
   // fd 1은 콘솔에 작성하는 기능.
+  // 콘솔에 작성하기 위한 내 코드는 putbuf()를 사용해 버퍼에 한번에 작성되어야 한당.
 
+	// 유효성 검사.
+	check_address(buffer);
+	if (fd >= 30 || fd < 0)
+	{
+		return -1;
+	}
+	struct thread *curr = thread_current();
+	// fd가 1일 경우.
 	if (fd == 1)
 	{
 		putbuf(buffer, size);
 		return size;
 	}
+	// 2보다 클 경우도 만들어 줘야 함.
+	else if (fd >= 3)
+	{
+		struct file *file = curr->fdt[fd];
+		// 파일이 NULL일 경우 예외 처리 추가. --> fd 가 1일 때는 파일이 null이니까 여기서 예외 처리 추가.
+		if (file == NULL)
+			return -1;
+		off_t byte;
+		byte = file_write(file, buffer, size);
+		return byte;
+	}
 	else
 	{
-		return 0;
+		return -1;
 	}
 }
 
@@ -262,7 +282,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 
 	case SYS_WRITE:
-		write(f->R.rdi, (void *)f->R.rsi, f->R.rdx);
+		f->R.rax = write(f->R.rdi, (void *)f->R.rsi, f->R.rdx);
 		break;
 
 	case SYS_READ:
