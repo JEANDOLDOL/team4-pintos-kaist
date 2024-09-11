@@ -237,6 +237,9 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	// p2 추가.
+	t->max_fd = 3;
+
 	/* Add to run queue. */
 	thread_unblock(t);
 	// 현재 스레드보다 우선 순위가 크면 양보
@@ -621,6 +624,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->waiting_lock = NULL;
 	t->nice = NICE_DEFAULT;
 	t->recent_cpu = RECENT_CPU_DEFAULT;
+
+	// project2
+	t->exit_num = 0;
 
 	/** project1-Advanced Scheduler */
 	if (thread_mlfqs)

@@ -1,10 +1,12 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
-// #define USERPROG
+
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+// p2 추가
+#include "filesys/filesys.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -105,6 +107,12 @@ struct thread
 	int nice;				   /* 나이스값 */
 	int recent_cpu;			   /* recent_cpu */
 	struct list_elem all_elem; /* for advanced scheduler*/
+
+	// 프로젝트2에서 추가
+	int exit_num;
+
+	struct file *fdt[30];
+	int max_fd;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */
