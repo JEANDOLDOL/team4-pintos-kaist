@@ -72,7 +72,7 @@ int add_file_to_fd_table(struct file *file)
 
 	max_fds++;
 
-	for(fd = 3; fd < max_fds; fd++){ //fd는 2부터 시작(0:stdin, 1:stdout을 제외
+	for(fd = 3; fd < max_fds; fd++){ //fd는 3부터 시작(0:stdin, 1:stdout을 제외
 		if(fdt[fd] == NULL){ // 빈 자리를 찾으면 
 			fdt[fd] = file; // 해당 파일을 테이블에 넣음
 			return fd; // 해당 fd 반환
@@ -105,14 +105,6 @@ void check_address(void *addr)
 	}
 }
 
-
-
-// pid_t fork (const char *thread_name){
-// 	struct thread *curr = thread_current();
-// 	struct thread *child;
-	
-	
-// }
 
 bool create (const char *file, unsigned initial_size)
 {
@@ -160,22 +152,43 @@ int open(const char *file)
 
 
 int write (int fd, const void *buffer, unsigned size) {
-	putbuf(buffer, size);
-	return size;
+	// putbuf(buffer, size);
+	// return size;
+	check_address(buffer);
 
-	// struct thread *curr = thread_current();
-	// struct file **fdt = curr -> fd_table;
+	struct thread *curr = thread_current();
+	struct file **fdt = curr -> fd_table;
 
-	// if(fd < 0 || fd >= FDT_COUNT_LIMIT || buffer == NULL || size == 0)
-	// 	return -1;
+	if(fd < 0 || fd >= FDT_COUNT_LIMIT)
+		return -1;
 
-	// if(fd == 1)
-	// {
+	if(fd == 1)
+	{
+		// 쓴것을 버퍼에 저장해놓는다.
+		putbuf(buffer, size);
+		return size;	
+	}
+	else if (fd >= 3) {
+		// printf("fd normal\n");
+		//이 코드 조각은 파일 디스크립터 테이블(fdt)에서 특정 파일 디스크립터(fd)에 해당하는 파일을 찾아오는 과정에서 사용됩니다. 파일 디스크립터 테이블은 각 프로세스가 열고 있는 파일들을 관리하는 구조입니다.
+		struct file *file_to_write = fdt[fd]; 
+		if (file_to_write == NULL) {
+			return -1;
+		}
 
-	// }
-	
-
+		lock_acquire(&filesys_lock);
+		int bytes_written = file_write(file_to_write, buffer, size);
+		// printf("Bytes read: %d\n", bytes_read);
+		lock_release(&filesys_lock);
+		
+		if (bytes_written < 0){
+			return -1;
+		}
+		return bytes_written;
+	}
+	return -1;
 }
+
 
 void close(int fd)
 {
@@ -229,6 +242,20 @@ int read (int fd, void *buffer, unsigned size) {
 	return -1;
 }
 
+pid_t fork (const char *thread_name){
+	
+	// 엄마랑 똑같은 자식을 만든다.
+	// 자 그래서 이거는 어떻게 해야하나
+	// 포크를 하면 어미와 똑같은 자식새끼를 하나 만든다.
+
+}	
+
+// unsigned tell (int fd) {
+// 	if(fd < 3);
+// 		return ;
+	
+// }
+
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
@@ -269,13 +296,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 		case SYS_WRITE:
-			write(f->R.rdi, f->R.rsi, f->R.rdx);
+			f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 		// case SYS_SEEK:
 		// 	halt();
 		// 	break;
 		// case SYS_TELL:
-		// 	halt();
+		// 	tell();
 		// 	break;
 		case SYS_CLOSE:
 			close(f->R.rdi);
