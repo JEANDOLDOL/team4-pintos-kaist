@@ -245,7 +245,9 @@ tid_t thread_create(const char *name, int priority,
 		*(t->fd_table+1) = NULL;
 		*(t->fd_table+2) = NULL;
 	}
-	
+	list_push_back(&thread_current()->child_list, &t->child_elem);	
+	t->parent = thread_current();
+
 	// 현재 스레드보다 우선 순위가 크면 양보
 	thread_change();
 
@@ -426,7 +428,7 @@ tid_t thread_tid(void)
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void thread_exit(void)
-{
+{	
 	ASSERT(!intr_context());
 
 #ifdef USERPROG
@@ -634,6 +636,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->exit_status = 0;
 	
 	t->max_fd = 2;
+	list_init(&t->child_list);
+	sema_init(&t->wait_sema, 0);
+	t->parent = NULL;
 
 	/** project1-Advanced Scheduler */
 	if (thread_mlfqs)

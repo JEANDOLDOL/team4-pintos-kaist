@@ -11,6 +11,10 @@
 #include "filesys/file.h"
 #include "threads/init.h"
 #include "devices/input.h"
+#include "userprog/process.h"
+#include "threads/mmu.h"
+#include "threads/palloc.h"
+#include "string.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -49,15 +53,41 @@ halt (void) {
 void
 exit (int status) {
 	struct thread *curr = thread_current();
+
 	curr->exit_status = status;
 	printf ("%s: exit(%d)\n", curr->name, curr->exit_status);
 	thread_exit();
 }
 
-// pid_t
-// fork (const char *thread_name){
-// 	process_fork();
-// }
+tid_t
+fork_sys (const char *thread_name, struct intr_frame *f){
+	return process_fork(thread_name, f);
+	// 	자식 프로세스에서, return 값은 0이어야 함
+	// 템플릿은 전체 user 메모리 공간을 복사하기 위해 `threads/mmu.c`에 있는 `pml4_for_each()` 이용
+}
+
+int
+exec (const char *file) {
+	check_address(file);
+
+	char *fn_copy = palloc_get_page(PAL_ZERO);
+	if (fn_copy == NULL) {
+		exit(-1);
+	}
+	strlcpy(fn_copy, file, strlen(file)+1);
+
+	if (process_exec(fn_copy) == -1) {
+		exit(-1);
+	}
+
+	NOT_REACHED();
+	return 0;
+}
+
+int
+wait (tid_t pid) {
+	return process_wait(pid);
+}
 
 void check_address(const uint64_t *addr) {
 	struct thread *curr = thread_current();
@@ -82,6 +112,8 @@ open (const char *file) {
 		// fd 생성
 		curr->max_fd++;
 
+		if (strcmp(thread_name(), file) == 0)
+			file_deny_write(f);
 		// 스레드 구조체 속 파일 배열에 push
 		*(curr->fd_table + curr->max_fd) = f;
 		
@@ -114,7 +146,6 @@ read (int fd, void *buffer, unsigned size) {
 	
 	struct thread *curr = thread_current();
 	int bytes = 0;
-
 	if (fd == 0) {
 		for (unsigned i = 0; i< size; i++)
 			*((char *)buffer + i) = input_getc();
@@ -173,6 +204,12 @@ write (int fd, const void *buffer, unsigned size) {
 	// (큰 버퍼는 분할)
 }
 
+void
+seek (int fd, unsigned position) {
+
+	
+}
+
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
@@ -191,15 +228,15 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_EXIT:
 			exit(f->R.rdi);
 			break;
-		// case SYS_FORK:
-		// 	fork(f->R.rdi);
-		// 	break;
-		// case SYS_EXEC:
-		// 	exec();
-		// 	break;
-		// case SYS_WAIT:
-		// 	wait();
-		// 	break;
+		case SYS_FORK:
+			f->R.rax = fork_sys((char *)f->R.rdi, f);
+			break;
+		case SYS_EXEC:
+			f->R.rax = exec((char *)f->R.rdi);
+			break;
+		case SYS_WAIT:
+			f->R.rax = wait(f->R.rdi);
+			break;
 		case SYS_CREATE:
 			f->R.rax = create((char *)f->R.rdi, f->R.rsi);
 			break;
@@ -218,9 +255,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_WRITE:
 			f->R.rax = write(f->R.rdi, (void *)f->R.rsi, f->R.rdx);
 			break;
-		// case SYS_SEEK:
-		// 	open(f->R.rdi);
-		// 	break;
+		case SYS_SEEK:
+			seek(f->R.rdi, f->R.rsi);
+			break;
 		// case SYS_TELL:
 		// 	open(f->R.rdi);
 		// 	break;
