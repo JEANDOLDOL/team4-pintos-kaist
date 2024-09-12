@@ -290,7 +290,7 @@ int process_wait(tid_t child_tid UNUSED)
 	int exit_status = child->exit_num;
 	list_remove(&child->child_elem);
 
-	// sema_up(&child->exit_sema); // 자식 프로세스가 죽을 수 있도록 signal
+	sema_up(&child->exit_sema); // 자식 프로세스가 죽을 수 있도록 signal
 
 	return exit_status;
 	// while (1)
@@ -308,11 +308,13 @@ void process_exit(void)
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	// 첫 번째 단어가 잘 추출되었는지 확인하고 출력
 	struct thread *curr = thread_current();
+	// deny add
+	file_close(curr->runn_file);
 
 	process_cleanup();
 	sema_up(&curr->wait_sema); // 자식 프로세스가 종료될 때까지 대기하는 부모에게 signal
 
-	// sema_down(&curr->exit_sema); // 부모 프로세스가 종료될 떄까지 대기
+	sema_down(&curr->exit_sema); // 부모 프로세스가 종료될 떄까지 대기
 }
 
 /* Free the current process's resources. */
@@ -562,6 +564,9 @@ load(const char *file_name, struct intr_frame *if_)
 			break;
 		}
 	}
+	// deny추가
+	t->runn_file = file;
+	file_deny_write(file);
 
 	/* Set up stack. */
 	if (!setup_stack(if_))
@@ -584,7 +589,8 @@ done:
 	{
 		exit(-1);
 	}
-	file_close(file);
+	// 여기서 말고 스레드가 삭제될때 닫기.
+	// file_close(file);
 	return success;
 }
 
