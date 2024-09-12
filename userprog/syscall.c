@@ -14,6 +14,8 @@
 #include "filesys/file.h"
 #include "threads/synch.h"
 #include "devices/input.h"
+#include "userprog/process.h"
+#include "threads/palloc.h"
 struct lock filesys_lock; // 파일 읽기/쓰기 용 lock
 
 void syscall_entry(void);
@@ -83,12 +85,6 @@ void exit(int status)
 
 	thread_exit();
 }
-
-// // fork 구현
-// pid_t fork(const char *thread_name)
-// { // thread_name이라는 이름을 가진 현재 프로세스의 복제본인 새 프로세스를 만듬. 자식 프로세스의 pid를 반환해야함. 자식프로세스의 반환값은 0.
-// 	return;
-// }
 
 bool create(const char *file, unsigned initial_size)
 { // 첫 번째 인자를 이름으로 하는 파일을 생성. 두 번쨰 인자는 크기이다. 성공시 true 반환. open 하지는 않는다.
@@ -227,6 +223,73 @@ int read(int fd, void *buffer, unsigned size)
 
 	return bytes;
 }
+// remove 구현
+bool remove(const char *file)
+{
+	check_address(file);
+
+	return filesys_remove(file);
+}
+
+void seek(int fd, unsigned position)
+{ // seek 구현
+	struct thread *curr = thread_current();
+	struct file *file = curr->fdt[fd];
+
+	if (fd < 3 || file == NULL)
+		return;
+
+	file_seek(file, position);
+}
+
+int tell(int fd)
+{
+	struct thread *curr = thread_current();
+	struct file *file = curr->fdt[fd];
+
+	if (fd < 3 || file == NULL)
+		return -1;
+
+	return file_tell(file);
+}
+
+// fork 구현
+tid_t fork(const char *thread_name, struct intr_frame *_if)
+{
+	// %RBX, %RSP, %RBP 및 %R12 - %R15 값을 복제.
+	// 자식 프로세스의 pid를 반환해야 한다. 자식프로세스에서의 반환값은 0.
+	// 자식은 fd및 가상 메모리 공간을 포함한 중복 리소스를 가져야함. ->memcpy쓰면 되나?
+	// 부모는 자식이 성공적으로 복제되었는지 여부를 알기전까진 포크에서 복귀하면 안됨
+	// 즉 복제 실패시 fork() 혹은 호출은 TID_ERROR를 반환해야 함.
+	check_address(thread_name);
+
+	return process_fork(thread_name, _if);
+}
+
+int exec(const char *file)
+{ // 현재의 프로세스가 cmd_line에서 이름이 주어지는 실행가능한 프로세스로 변경됨. 이때 주어진 인자를 전달함. 성공하면 리턴하지 않음.
+	check_address(file);
+
+	off_t size = strlen(file) + 1;
+	char *cmd_copy = palloc_get_page(PAL_ZERO);
+
+	if (cmd_copy == NULL)
+		return -1;
+	// 새로운 페이지에 파일 이름을 복사한다.
+	memcpy(cmd_copy, file, size);
+
+	// 여기서 execute되는데, 실패할떄만 리턴하므로 굳이 신경안써도 ㄱㅊ
+	if (process_exec(cmd_copy) == -1)
+		return -1;
+
+	return 0; // process_exec 성공시 리턴 값 없음 (do_iret)
+}
+
+int wait(tid_t tid)
+{ /* 자식 프로세스 (pid) 를 기다려서 자식의 종료 상태(exit status)를 가져옴. 자식이 살아있다면, 종료될 때까지 기다림.
+	 종료가 되면 그 프로세스가 exit 함수로 전달해준 상태(exit status)를 반환함.*/
+	return process_wait(tid);
+}
 
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
@@ -254,25 +317,26 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = filesize(f->R.rdi);
 		break;
 
-		// case SYS_FORK:
-		// 	fork();
-		// 	break;
+	case SYS_FORK:
+		f->R.rax = fork(f->R.rdi, f);
+		break;
 
-		// case SYS_EXEC:
-		// 	halt();
-		// 	break;
+	case SYS_EXEC:
+		f->R.rax = exec((char *)f->R.rdi);
+		break;
 
-		// case SYS_WAIT:
-		// 	halt();
-		// 	break;
+	case SYS_WAIT:
+		f->R.rax = wait(f->R.rdi);
+		break;
 
 	case SYS_CREATE:
 		f->R.rax = create((char *)f->R.rdi, f->R.rsi);
 		break;
 
-	// case SYS_REMOVE:
-	// 	halt();
-	// 	break;
+	case SYS_REMOVE:
+		f->R.rax = remove(f->R.rdi);
+		break;
+
 	case SYS_CLOSE:
 		close(f->R.rdi);
 		break;
@@ -287,6 +351,14 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 	case SYS_READ:
 		f->R.rax = read((struct file *)f->R.rdi, (void *)f->R.rsi, f->R.rdx);
+		break;
+
+	case SYS_TELL:
+		f->R.rax = tell(f->R.rdi);
+		break;
+
+	case SYS_SEEK:
+		seek(f->R.rdi, f->R.rsi);
 		break;
 
 	default:

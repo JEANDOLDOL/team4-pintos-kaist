@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 // p2 추가
 #include "filesys/filesys.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -111,8 +112,18 @@ struct thread
 	// 프로젝트2에서 추가
 	int exit_num;
 
+	// fork 추가
+	struct intr_frame _if; // 부모의 인터럽트 프레임.
+	struct list child_list;
+	struct list_elem child_elem;
+
+	struct semaphore fork_sema;
+	struct semaphore wait_sema;
+	struct semaphore exit_sema;
+
 	struct file *fdt[30];
 	int max_fd;
+	struct file *runn_file; // 실행중인 파일
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem; /* List element. */

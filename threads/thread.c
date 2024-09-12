@@ -218,7 +218,7 @@ tid_t thread_create(const char *name, int priority,
 	ASSERT(function != NULL);
 
 	/* Allocate thread. */
-	t = palloc_get_page(PAL_ZERO);
+	t = palloc_get_page(PAL_ZERO); // PAL_ZERO는 페이지가 0일때 함?
 	if (t == NULL)
 		return TID_ERROR;
 
@@ -239,7 +239,10 @@ tid_t thread_create(const char *name, int priority,
 
 	// p2 추가.
 	t->max_fd = 3;
+	// list_init(&t->child_list);
+	// 여기서 실행중인 스레드(부모)의 자식 리스트에 만들고자 하는 스레드(자식)의 스레드를 넣을거임.
 
+	list_push_front(&thread_current()->child_list, &t->child_elem);
 	/* Add to run queue. */
 	thread_unblock(t);
 	// 현재 스레드보다 우선 순위가 크면 양보
@@ -638,6 +641,12 @@ init_thread(struct thread *t, const char *name, int priority)
 	{
 		t->priority = priority;
 	}
+	t->runn_file = NULL;
+
+	list_init(&t->child_list);
+	sema_init(&t->fork_sema, 0);
+	sema_init(&t->exit_sema, 0);
+	sema_init(&t->wait_sema, 0);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
