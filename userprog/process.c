@@ -422,7 +422,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 // 스택에 푸시하는 함수 구현
 void argument_stack(char **argv, int argc, struct intr_frame *if_)
 {
-	char *address[128];
+	char *address[32];
 
 	for (int i = argc - 1; i >= 0; i--)
 	{
@@ -480,7 +480,7 @@ load(const char *file_name, struct intr_frame *if_)
 
 	// 공백을 기준으로 단어 분리
 	char *token, *save_ptr;
-	char *argv[128];
+	char *argv[32];
 	int argc = 0;
 
 	// token = strtok_r (file_name, " ", &save_ptr);

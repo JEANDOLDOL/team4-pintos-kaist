@@ -217,9 +217,9 @@ int read(int fd, void *buffer, unsigned size)
 		return -1;
 	}
 	off_t bytes = -1;
-	lock_acquire(&filesys_lock);
+	// lock_acquire(&filesys_lock);
 	bytes = file_read(file, buffer, size);
-	lock_release(&filesys_lock);
+	// lock_release(&filesys_lock);
 
 	return bytes;
 }
@@ -294,13 +294,6 @@ int wait(tid_t tid)
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
-	// register uint64_t *num asm("rax") = (uint64_t *)num_;
-	// register uint64_t *a1 asm("rdi") = (uint64_t *)a1_;
-	// register uint64_t *a2 asm("rsi") = (uint64_t *)a2_;
-	// register uint64_t *a3 asm("rdx") = (uint64_t *)a3_;
-	// register uint64_t *a4 asm("r10") = (uint64_t *)a4_;
-	// register uint64_t *a5 asm("r8") = (uint64_t *)a5_;
-	// register uint64_t *a6 asm("r9") = (uint64_t *)a6_;
 	// TODO: Your implementation goes here.
 	int number = f->R.rax;
 	switch (number)
