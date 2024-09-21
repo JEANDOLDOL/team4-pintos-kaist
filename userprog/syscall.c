@@ -50,11 +50,13 @@ halt (void) {
 	power_off();
 }
 
+static int i = 1;
 void
 exit (int status) {
 	struct thread *curr = thread_current();
 
 	curr->exit_status = status;
+
 	printf ("%s: exit(%d)\n", curr->name, curr->exit_status);
 	thread_exit();
 }
@@ -91,8 +93,9 @@ wait (tid_t pid) {
 
 void check_address(const uint64_t *addr) {
 	struct thread *curr = thread_current();
-	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(curr->pml4, addr) == NULL)
+	if (addr == NULL || !(is_user_vaddr(addr)) || pml4_get_page(curr->pml4, addr) == NULL) {
 		exit(-1);
+	}
 }
 
 bool
@@ -100,6 +103,12 @@ create (const char *file, unsigned initial_size) {
 	check_address(file);
 	// 새로운 파일 생성
 	return filesys_create(file, initial_size);
+}
+
+bool
+remove (const char *file) {
+	check_address(file);
+	return filesys_remove(file);
 }
 
 int
@@ -135,8 +144,9 @@ filesize (int fd) {
 
 void check_fd(const int fd) {
 	struct thread *curr = thread_current();
-	if (fd < 0 || fd > curr->max_fd)
+	if (fd < 0 || fd > curr->max_fd) {
 		exit(-1);
+	}
 }
 
 int
@@ -156,7 +166,9 @@ read (int fd, void *buffer, unsigned size) {
 		struct file *file = *(curr->fd_table + fd);
 		if (file == NULL)
 			return -1;
+		// lock_acquire(&filesys_lock);
 		bytes = file_read(file, buffer, size);
+		// lock_release(&filesys_lock);
 	}
 	
 	return bytes;
@@ -168,8 +180,9 @@ close (int fd) {
 	struct thread *curr = thread_current();
 	// file 찾기
 	struct file *file = *(curr->fd_table + fd);
-	if (file == NULL)
+	if (file == NULL) {
 		exit(-1);
+	}
 	file_close(file);
 	if (fd == curr->max_fd)
 		curr->max_fd--;
@@ -206,8 +219,12 @@ write (int fd, const void *buffer, unsigned size) {
 
 void
 seek (int fd, unsigned position) {
-
-	
+	check_fd(fd);
+	struct thread *curr = thread_current();
+	struct file *file = *(curr->fd_table + fd);
+	if (file == NULL)
+		return -1;
+	file_seek(file, position);	
 }
 
 /* The main system call interface */
@@ -240,9 +257,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CREATE:
 			f->R.rax = create((char *)f->R.rdi, f->R.rsi);
 			break;
-		// case SYS_REMOVE:
-		// 	create(f->R.rdi, f->R.rsi);
-		// 	break;
+		case SYS_REMOVE:
+			f->R.rax = remove(f->R.rdi);
+			break;
 		case SYS_OPEN:
 			f->R.rax = open((char *)f->R.rdi);
 			break;

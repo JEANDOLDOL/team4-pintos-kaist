@@ -117,11 +117,10 @@ struct thread
 	struct list_elem child_elem;
 	
 	struct intr_frame fork_if;
-	// struct lock wait_lock;
-    // struct condition wait_cond; 
+	struct semaphore fork_sema;
 	struct semaphore wait_sema;
+	struct semaphore exit_sema;
 	struct thread *parent;
-	
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

@@ -433,6 +433,10 @@ void thread_exit(void)
 
 #ifdef USERPROG
 	struct thread *curr = thread_current();
+	for (int i = 3; i <=curr->max_fd; i++) {
+		if (*(curr->fd_table+i) != NULL)
+			close(i);
+	}
 	if (curr->fd_table != NULL)
 		free(curr->fd_table);
 	process_exit();
@@ -638,6 +642,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->max_fd = 2;
 	list_init(&t->child_list);
 	sema_init(&t->wait_sema, 0);
+	sema_init(&t->fork_sema, 0);
+	sema_init(&t->exit_sema, 0);
 	t->parent = NULL;
 
 	/** project1-Advanced Scheduler */

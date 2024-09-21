@@ -77,6 +77,18 @@ initd(void *f_name)
 	NOT_REACHED();
 }
 
+struct thread *get_child(int pid) {
+	struct thread *curr = thread_current ();
+	struct list *child_list = &curr->child_list;
+	for (struct list_elem *e = list_begin(child_list); e != list_end(child_list); e = list_next(e)){
+		struct thread *t = list_entry(e, struct thread, child_elem);
+		if (t->tid == pid) {
+			return t;
+		}
+	}
+	return NULL;
+}
+
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
 tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
@@ -86,8 +98,22 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	tid_t tid = thread_create(name,
 						 PRI_DEFAULT, __do_fork, thread_current());
 	
-	sema_down(&thread_current()->wait_sema);
+	// 추가
+	if (tid == TID_ERROR)
+		return tid;
 	
+	sema_down(&thread_current()->fork_sema);
+
+	struct thread *child = get_child(tid);
+
+	if (child->exit_status == -1) {
+		sema_up(&child->exit_sema);
+		return -1;
+	}
+	
+	if (tid == 23)
+		printf("return tid\n");
+
 	return tid;
 }
 
@@ -195,16 +221,25 @@ __do_fork(void *aux)
 
 	for (int i = 3; i <= parent->max_fd; i++) {
 		*(current->fd_table+i) = file_duplicate(*(parent->fd_table+i));
+		// if (current->fd_table[i] == NULL) {
+		// 	succ = false;
+		// 	goto error;
+		// }
 	}
 
 	current->max_fd = parent->max_fd;
 
-	sema_up(&parent->wait_sema);
+	sema_up(&parent->fork_sema);
+
+	if (current->tid == 23)
+		printf("fork 23\n");
 
 	/* Finally, switch to the newly created process. */
 	if (succ)
 		do_iret(&if_);
 error:
+	// 추가
+	sema_up(&parent->fork_sema);
 	exit(TID_ERROR);
 }
 
@@ -242,18 +277,6 @@ int process_exec(void *f_name)
 	NOT_REACHED();
 }
 
-struct thread *get_child(int pid) {
-	struct thread *curr = thread_current ();
-	struct list *child_list = &curr->child_list;
-	for (struct list_elem *e = list_begin(child_list); e != list_end(child_list); e = list_next(e)){
-		struct thread *t = list_entry(e, struct thread, child_elem);
-		if (t->tid == pid) {
-			return t;
-		}
-	}
-	return NULL;
-}
-
 /* Waits for thread TID to die and returns its exit status.  If
  * it was terminated by the kernel (i.e. killed due to an
  * exception), returns -1.  If TID is invalid or if it was not a
@@ -273,19 +296,20 @@ int process_wait(tid_t child_tid UNUSED)
 	struct thread *child = get_child(child_tid);
 	struct thread *curr = thread_current();
 	
-	if (child == NULL)
+	if (child == NULL){
 		return -1;
+	}
 
-	sema_down(&curr->wait_sema);
+	sema_down(&child->wait_sema);
 
 	// 자식의 종료 상태를 찾음
 	// pid가 종료될 때 전달한 상태 반환
 	// terminate 된거면 -1 반환
+	int child_exit = child->exit_status;
 	list_remove(&child->child_elem);
+	sema_up(&child->exit_sema);
 
-	return child->exit_status;
-
-	// return -1;
+	return child_exit;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -295,11 +319,19 @@ void process_exit(void)
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	struct thread *parent = thread_current()->parent;
+	struct thread *curr = thread_current();
+	// struct thread *parent = curr->parent;
 	
-	if (parent)
-		sema_up(&parent->wait_sema);
 
+	// if (parent) {
+	// 	parent->child_exit = curr->exit_status;
+		// printf("process_exit child->exit_status : %d\n", parent->child_exit);
+	// 	sema_up(&parent->wait_sema);
+	// }
+	// list_remove(&thread_current()->child_elem);
+	sema_up(&curr->wait_sema);
+
+	sema_down(&curr->exit_sema);
 	process_cleanup();
 }
 
@@ -479,6 +511,7 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 	}
 
+	// file_allow_write(file);
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
 		|| ehdr.e_version != 1 || ehdr.e_phentsize != sizeof(struct Phdr) || ehdr.e_phnum > 1024)
