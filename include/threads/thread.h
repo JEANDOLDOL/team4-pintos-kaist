@@ -11,6 +11,8 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
+// p3 추가
+#include <hash.h>
 
 // 초기화에 필요한 값
 #define PRI_MAX 63
@@ -136,6 +138,8 @@ struct thread
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
 	struct supplemental_page_table spt;
+	// 추가
+	struct hash_elem hash_elem;
 #endif
 
 	/* Owned by thread.c. */
