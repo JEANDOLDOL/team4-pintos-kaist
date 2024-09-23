@@ -118,6 +118,20 @@ open (const char *file) {
 	struct file *f;
 
 	if ((f = filesys_open(file))) {
+		for (int i = 3; i <= curr->max_fd; i++) {
+			if (*(curr->fd_table + i) == NULL) {
+				if (strcmp(thread_name(), file) == 0)
+					file_deny_write(f);
+				*(curr->fd_table + i) = f;
+				return i;
+			}
+		}
+
+		if (curr->max_fd == FD_LIMIT) {
+			file_close(f);
+			return -1;
+		}
+
 		// fd 생성
 		curr->max_fd++;
 
@@ -129,6 +143,7 @@ open (const char *file) {
 		// fd 반환
 		return curr->max_fd;
 	}
+	
 	return -1;
 }
 

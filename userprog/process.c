@@ -110,9 +110,6 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 		sema_up(&child->exit_sema);
 		return -1;
 	}
-	
-	if (tid == 23)
-		printf("return tid\n");
 
 	return tid;
 }
@@ -144,7 +141,6 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	 *    TODO: NEWPAGE. */
 	newpage = palloc_get_page(PAL_USER);
 	if (newpage == NULL) {
-		printf("Failed to allocate new page for child process.\n");
 		return false;
 	}
 
@@ -159,7 +155,6 @@ duplicate_pte(uint64_t *pte, void *va, void *aux)
 	if (!pml4_set_page(current->pml4, va, newpage, writable))
 	{
 		/* 6. TODO: if fail to insert page, do error handling. */
-		printf("Failed to set page at virtual address %p for the child process.\n", va);
 		return false;
 	}
 	
@@ -230,9 +225,6 @@ __do_fork(void *aux)
 	current->max_fd = parent->max_fd;
 
 	sema_up(&parent->fork_sema);
-
-	if (current->tid == 23)
-		printf("fork 23\n");
 
 	/* Finally, switch to the newly created process. */
 	if (succ)

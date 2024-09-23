@@ -35,6 +35,15 @@ typedef int tid_t;
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63	   /* Highest priority. */
 
+// 1024? 128? 10?!
+// 1024 : X -> 용량이 안됨
+// 128 : 아예 인터럽트 에러 터짐
+// 10 : 됨
+// 32 : 아예 인터럽트 에러 터짐
+// 200 : 됨
+// -> 2의 제곱수가 안되는 듯
+#define FD_LIMIT 200
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The

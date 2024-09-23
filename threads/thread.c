@@ -236,7 +236,7 @@ tid_t thread_create(const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock(t);
-	t->fd_table = malloc(sizeof(struct file *) * 1024);
+	t->fd_table = malloc(sizeof(struct file *) * FD_LIMIT);
 	if (t->fd_table == NULL) {
 		PANIC("Memory allocation for fd_table failed");
 	}
